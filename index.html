@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบเช็คชื่อออนไลน์</title>
+    <style>
+        :root { --primary: #2563eb; --success: #22c55e; --bg: #f8fafc; }
+        body { font-family: 'Tahoma', sans-serif; background-color: var(--bg); padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #1e293b; margin-bottom: 20px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { background-color: var(--primary); color: white; padding: 12px; text-align: center; }
+        td { padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: center; }
+        tr:nth-child(even) { background-color: #f1f5f9; }
+
+        .btn-check { 
+            background-color: var(--success); color: white; border: none; 
+            padding: 8px 15px; border-radius: 6px; cursor: pointer; transition: 0.2s;
+        }
+        .btn-check:hover { background-color: #16a34a; transform: scale(1.05); }
+        .btn-check:disabled { background-color: #cbd5e1; cursor: not-allowed; }
+
+        .status-done { color: var(--success); font-weight: bold; }
+        .loading-spinner { font-size: 12px; color: #64748b; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>ระบบเช็คชื่อนักเรียน</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>เลขที่</th>
+                <th>ชื่อ-นามสกุล</th>
+                <th>เวลา</th>
+                <th>สถานะ</th>
+                <th>จัดการ</th>
+            </tr>
+        </thead>
+        <tbody id="studentTable">
+            </tbody>
+    </table>
+</div>
+
+<script>
+    // 1. วาง URL ที่ก๊อปมาจาก Google Apps Script ตรงนี้
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwQdz3qWW-SvJ3LK-o5BSUkV6DyFoQyUbJD8zE3Mb5fahtnYde6e5G-lHpEgxP6nBD5/exec";
+
+    const students = [
+        "ชุติภาส", "ศรัณย์พร", "สรรพวิท", "ดิศร", "สุณิศา", "จันทร์เพ็ญ", "กฤษณพล", "ธนภัทร", "กิ่งดาว", "นภสร",
+        "สิทธิ์ศักดิ์", "นัฐณัญญา", "ปาริชาติ", "เจษฎา", "ชนาพร", "ณัฏฐพัฒน์", "ณัฐดน", "ภาณุพงศ์", "พิมพ์วิภา", "นภัทร",
+        "มรุพงษ์", "ปุณยวัจน์", "กฤษติชัย", "สิริณัฎฐ", "กิตติยาภรณ์", "พันทิพา", "นัฐนัย", "นัฐวันวรรณ", "ชุติมา", "เนตรนภา",
+        "ธมลวรรณ", "จิดาภา", "น้ำทิพย์", "พนิดา", "ธมลวรรณ", "วรัญญา", "วรรณลดา", "สุภัทรา", "ธนัญญา", "กฤติญา", 
+        "วิไลลักษณ์", "ศิริพร"
+    ];
+
+    const tableBody = document.getElementById('studentTable');
+
+    // สร้างตารางรายชื่อ
+    students.forEach((name, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td style="text-align: left;">${name}</td>
+            <td id="time-${index}">-</td>
+            <td id="status-${index}">รอดำเนินการ</td>
+            <td>
+                <button class="btn-check" id="btn-${index}" onclick="checkName(${index}, '${name}')">เช็คชื่อ</button>
+                <div id="loader-${index}" class="loading-spinner" style="display:none;">กำลังบันทึก...</div>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+
+    // ฟังก์ชันส่งข้อมูลไป Google Sheets
+    async function checkName(index, name) {
+        const btn = document.getElementById(`btn-${index}`);
+        const loader = document.getElementById(`loader-${index}`);
+        const timeCell = document.getElementById(`time-${index}`);
+        const statusCell = document.getElementById(`status-${index}`);
+
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('th-TH');
+
+        // แสดงสถานะกำลังโหลด
+        btn.style.display = 'none';
+        loader.style.display = 'block';
+
+        const data = {
+            no: index + 1,
+            name: name,
+            time: timeStr,
+            status: "มาเรียน"
+        };
+
+        try {
+            // ส่งข้อมูลด้วยวิธี POST
+            await fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors', // สำคัญ: ป้องกันปัญหาเรื่องความปลอดภัยเบื้องต้น
+                cache: 'no-cache',
+                body: JSON.stringify(data)
+            });
+
+            // อัปเดตหน้าจอ
+            timeCell.innerText = timeStr;
+            statusCell.innerText = "สำเร็จ";
+            statusCell.className = "status-done";
+            loader.innerText = "✅ บันทึกแล้ว";
+        } catch (error) {
+            alert("บันทึกล้มเหลว กรุณาลองใหม่");
+            btn.style.display = 'inline-block';
+            loader.style.display = 'none';
+        }
+    }
+</script>
+
+</body>
+</html>
